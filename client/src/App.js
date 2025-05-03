@@ -12,7 +12,7 @@ function App() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  const API_URL = 'http://localhost:5001/api';
+  const API_URL = '/api';
 
   useEffect(() => {
     fetchMovies();
