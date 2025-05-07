@@ -3,6 +3,13 @@ const router = express.Router();
 const { getDb } = require("../db/conn");
 const { ObjectId } = require("mongodb");
 
+// Helper function to validate comment data
+const validateComment = (comment) => {
+  if (!comment.name || !comment.text) {
+    return false;
+  }
+  return true;
+};
 
 // Get all movies with pagination
 router.get("/", async (req, res) => {
@@ -65,29 +72,82 @@ router.post("/:id/comments", async (req, res) => {
     const db = getDb();
     const movieId = new ObjectId(req.params.id);
     
-    // Check if movie exists
+    // Validate movie exists
     const movie = await db.collection("movies").findOne({ _id: movieId });
     if (!movie) {
       return res.status(404).json({ error: "Movie not found" });
     }
     
-    // Prepare the comment object
+    // Validate comment data
+    const comment = req.body;
+    if (!validateComment(comment)) {
+      return res.status(400).json({ error: "Invalid comment data. Name and text are required." });
+    }
+    
+    // Prepare comment for insertion
     const newComment = {
-      _id: new ObjectId(),
+      name: comment.name,
+      email: comment.email || "",
       movie_id: movieId,
-      name: req.body.name || "Anonymous",
-      email: req.body.email || "",
-      text: req.body.text,
+      text: comment.text,
       date: new Date()
     };
     
-    // Insert the comment
-    await db.collection("comments").insertOne(newComment);
+    // Insert comment
+    const result = await db.collection("comments").insertOne(newComment);
     
-    res.status(201).json(newComment);
+    // Return the new comment with its ID
+    res.status(201).json({
+      ...newComment,
+      _id: result.insertedId
+    });
   } catch (error) {
     console.error("Error adding comment:", error);
     res.status(500).json({ error: "Failed to add comment" });
+  }
+});
+
+// Update an existing comment
+router.put("/comments/:commentId", async (req, res) => {
+  try {
+    const db = getDb();
+    const commentId = new ObjectId(req.params.commentId);
+    
+    // Find the comment first
+    const existingComment = await db.collection("comments").findOne({ _id: commentId });
+    if (!existingComment) {
+      return res.status(404).json({ error: "Comment not found" });
+    }
+    
+    // Validate comment data
+    const updates = req.body;
+    if (!validateComment(updates)) {
+      return res.status(400).json({ error: "Invalid comment data. Name and text are required." });
+    }
+    
+    // Update only allowed fields
+    const result = await db.collection("comments").updateOne(
+      { _id: commentId },
+      {
+        $set: {
+          name: updates.name,
+          email: updates.email || existingComment.email,
+          text: updates.text,
+          // Don't update movie_id or creation date
+        }
+      }
+    );
+    
+    if (result.modifiedCount === 0) {
+      return res.status(400).json({ error: "Comment not modified" });
+    }
+    
+    // Get the updated comment
+    const updatedComment = await db.collection("comments").findOne({ _id: commentId });
+    res.json(updatedComment);
+  } catch (error) {
+    console.error("Error updating comment:", error);
+    res.status(500).json({ error: "Failed to update comment" });
   }
 });
 
@@ -97,13 +157,20 @@ router.delete("/comments/:commentId", async (req, res) => {
     const db = getDb();
     const commentId = new ObjectId(req.params.commentId);
     
-    const result = await db.collection("comments").deleteOne({ _id: commentId });
-    
-    if (result.deletedCount === 0) {
+    // First find the comment to make sure it exists
+    const comment = await db.collection("comments").findOne({ _id: commentId });
+    if (!comment) {
       return res.status(404).json({ error: "Comment not found" });
     }
     
-    res.status(200).json({ message: "Comment deleted successfully" });
+    // Delete the comment
+    const result = await db.collection("comments").deleteOne({ _id: commentId });
+    
+    if (result.deletedCount === 0) {
+      return res.status(400).json({ error: "Failed to delete comment" });
+    }
+    
+    res.json({ message: "Comment deleted successfully", deletedId: req.params.commentId });
   } catch (error) {
     console.error("Error deleting comment:", error);
     res.status(500).json({ error: "Failed to delete comment" });

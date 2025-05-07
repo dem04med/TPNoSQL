@@ -1,22 +1,35 @@
 import React, { useState } from 'react';
 import Comment from './Comment';
-import CommentForm from './CommentForm';
 
-function MovieDetails({ movie, comments: initialComments, onBack }) {
-  const [comments, setComments] = useState(initialComments || []);
+function MovieDetails({ movie, comments, onBack, onAddComment, onEditComment, onDeleteComment }) {
+  const [newComment, setNewComment] = useState({ name: '', text: '' });
+  const [isAddingComment, setIsAddingComment] = useState(false);
   
   if (!movie) {
     return <div className="loading">Loading movie details...</div>;
   }
 
-  const handleCommentAdded = (newComment) => {
-    setComments([newComment, ...comments]);
-  };
-  
-  const handleCommentDeleted = (commentId) => {
-    setComments(comments.filter(comment => comment._id !== commentId));
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setNewComment(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleSubmitComment = (e) => {
+    e.preventDefault();
+    
+    // Validate inputs
+    if (!newComment.name.trim() || !newComment.text.trim()) {
+      alert("Please enter both your name and comment");
+      return;
+    }
+    
+    onAddComment(movie._id, newComment);
+    
+    // Reset form
+    setNewComment({ name: '', text: '' });
+    setIsAddingComment(false);
+  };
+  
   return (
     <div className="movie-details">
       <button className="back-button" onClick={onBack}>
@@ -69,16 +82,56 @@ function MovieDetails({ movie, comments: initialComments, onBack }) {
       </div>
       
       <div className="comments-section">
-        <CommentForm movieId={movie._id} onCommentAdded={handleCommentAdded} />
+        <div className="comments-header">
+          <h3>Comments ({comments.length})</h3>
+          <button 
+            className="add-comment-btn"
+            onClick={() => setIsAddingComment(!isAddingComment)}
+          >
+            {isAddingComment ? 'Cancel' : 'Add Comment'}
+          </button>
+        </div>
         
-        <h3>Comments ({comments.length})</h3>
+        {isAddingComment && (
+          <div className="add-comment-form">
+            <form onSubmit={handleSubmitComment}>
+              <div className="form-group">
+                <label htmlFor="name">Name:</label>
+                <input
+                  type="text"
+                  id="name"
+                  name="name"
+                  value={newComment.name}
+                  onChange={handleInputChange}
+                  placeholder="Your name"
+                  required
+                />
+              </div>
+              <div className="form-group">
+                <label htmlFor="text">Comment:</label>
+                <textarea
+                  id="text"
+                  name="text"
+                  value={newComment.text}
+                  onChange={handleInputChange}
+                  placeholder="Write your comment here"
+                  rows="4"
+                  required
+                ></textarea>
+              </div>
+              <button type="submit" className="submit-btn">Submit Comment</button>
+            </form>
+          </div>
+        )}
+        
         {comments.length > 0 ? (
           <div className="comments-list">
             {comments.map((comment) => (
               <Comment 
                 key={comment._id} 
                 comment={comment} 
-                onDelete={handleCommentDeleted} 
+                onEdit={onEditComment}
+                onDelete={onDeleteComment}
               />
             ))}
           </div>

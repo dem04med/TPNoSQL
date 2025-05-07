@@ -1,71 +1,72 @@
 import React, { useState } from 'react';
 
-function Comment({ comment, onDelete }) {
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [error, setError] = useState(null);
+function Comment({ comment, onEdit, onDelete }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedName, setEditedName] = useState(comment.name);
+  const [editedText, setEditedText] = useState(comment.text);
   
   // Format date - convert to readable format
   const formatDate = (dateString) => {
     const options = { year: 'numeric', month: 'long', day: 'numeric' };
     return new Date(dateString).toLocaleDateString(undefined, options);
   };
-  
-  const handleDelete = async () => {
-    // Confirm deletion
-    if (!window.confirm('Are you sure you want to delete this comment?')) {
+
+  const handleSave = () => {
+    // Validate input
+    if (!editedName.trim() || !editedText.trim()) {
+      alert("Name and comment text cannot be empty");
       return;
     }
     
-    try {
-      setIsDeleting(true);
-      setError(null);
-      
-      const response = await fetch(`http://localhost:5001/api/movies/comments/${comment._id}`, {
-        method: 'DELETE',
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to delete comment');
-      }
-      
-      // Notify parent component
-      if (onDelete) {
-        onDelete(comment._id);
-      }
-      
-    } catch (err) {
-      setError(err.message);
-      setIsDeleting(false);
-    }
+    onEdit(comment._id, {
+      name: editedName,
+      text: editedText
+    });
+    setIsEditing(false);
   };
 
-  if (error) {
-    return (
-      <div className="comment comment-error">
-        <div className="error-message">Error: {error}</div>
-        <button onClick={() => setError(null)} className="retry-button">
-          Dismiss
-        </button>
-      </div>
-    );
-  }
+  const handleCancel = () => {
+    // Reset to original values
+    setEditedName(comment.name);
+    setEditedText(comment.text);
+    setIsEditing(false);
+  };
 
   return (
     <div className="comment">
-      <div className="comment-header">
-        <span className="comment-name">{comment.name}</span>
-        <span className="comment-date">{formatDate(comment.date)}</span>
-      </div>
-      <div className="comment-text">{comment.text}</div>
-      <div className="comment-actions">
-        <button 
-          onClick={handleDelete} 
-          disabled={isDeleting}
-          className="delete-button"
-        >
-          {isDeleting ? 'Deleting...' : 'Delete'}
-        </button>
-      </div>
+      {isEditing ? (
+        <div className="comment-edit-form">
+          <input
+            type="text"
+            value={editedName}
+            onChange={(e) => setEditedName(e.target.value)}
+            placeholder="Your name"
+            className="comment-input"
+          />
+          <textarea
+            value={editedText}
+            onChange={(e) => setEditedText(e.target.value)}
+            placeholder="Your comment"
+            className="comment-textarea"
+          ></textarea>
+          <div className="comment-edit-actions">
+            <button onClick={handleSave} className="save-btn">Save</button>
+            <button onClick={handleCancel} className="cancel-btn">Cancel</button>
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="comment-header">
+            <span className="comment-name">{comment.name}</span>
+            <span className="comment-date">{formatDate(comment.date)}</span>
+          </div>
+          <div className="comment-text">{comment.text}</div>
+          <div className="comment-actions">
+            <button onClick={() => setIsEditing(true)} className="edit-btn">Edit</button>
+            <button onClick={() => onDelete(comment._id)} className="delete-btn">Delete</button>
+          </div>
+        </>
+      )}
     </div>
   );
 }

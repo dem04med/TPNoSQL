@@ -12,7 +12,7 @@ function App() {
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
 
-  const API_URL = '/api';
+  const API_URL = 'http://localhost:5001/api';
 
   useEffect(() => {
     fetchMovies();
@@ -73,6 +73,87 @@ function App() {
     }
   };
 
+  // Comment Operations
+  const handleAddComment = async (movieId, commentData) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/movies/${movieId}/comments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(commentData),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to add comment');
+      }
+      
+      const newComment = await response.json();
+      setComments(prevComments => [...prevComments, newComment]);
+      setLoading(false);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  const handleEditComment = async (commentId, commentData) => {
+    try {
+      setLoading(true);
+      const response = await fetch(`${API_URL}/movies/comments/${commentId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(commentData),
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to update comment');
+      }
+      
+      const updatedComment = await response.json();
+      
+      setComments(prevComments => 
+        prevComments.map(comment => 
+          comment._id === commentId ? updatedComment : comment
+        )
+      );
+      
+      setLoading(false);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteComment = async (commentId) => {
+    try {
+      if (!window.confirm('Are you sure you want to delete this comment?')) {
+        return;
+      }
+      
+      setLoading(true);
+      const response = await fetch(`${API_URL}/movies/comments/${commentId}`, {
+        method: 'DELETE',
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to delete comment');
+      }
+      
+      setComments(prevComments => 
+        prevComments.filter(comment => comment._id !== commentId)
+      );
+      
+      setLoading(false);
+    } catch (err) {
+      setError(err.message);
+      setLoading(false);
+    }
+  };
+
   if (error) {
     return <div className="error-message">Error: {error}</div>;
   }
@@ -88,7 +169,10 @@ function App() {
           <MovieDetails 
             movie={selectedMovie} 
             comments={comments} 
-            onBack={handleBackToList} 
+            onBack={handleBackToList}
+            onAddComment={handleAddComment}
+            onEditComment={handleEditComment}
+            onDeleteComment={handleDeleteComment}
           />
         ) : (
           <>
